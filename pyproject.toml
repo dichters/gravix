@@ -21,3 +21,8 @@ dependencies = [
 
 [project.scripts]
 gravix = "gravix.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

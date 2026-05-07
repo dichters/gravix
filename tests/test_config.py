@@ -5,73 +5,80 @@ from pathlib import Path
 import pytest
 
 from gravix.config import load_config
-from tests.conftest import clear_gravix_env, write_config, write_env_file
+from tests.conftest import clear_gravix_env, write_config, write_config_missing_llm, write_env_file
 
 
 class TestLoadConfigFromYamlAndEnv:
-    """work_dir from yaml, LLM credentials from .env."""
+    """work_dir and llm settings from yaml, API keys from .env."""
 
     def test_load_from_yaml_and_env_file(self, tmp_workdir: Path) -> None:
-        """Load work_dir from yaml, credentials from .env."""
+        """Load work_dir and llm from yaml, keys from .env."""
         write_config(tmp_workdir / "gravix_conf.yaml", work_dir=".my_gravix")
         write_env_file(tmp_workdir / ".env")
         cfg = load_config()
         assert cfg.work_dir == ".my_gravix"
         assert cfg.lite_base_url == "https://api.lite.example.com/v1"
+        assert cfg.lite_model == "gpt-4o-mini"
         assert cfg.lite_key == "sk-lite-test"
         assert cfg.full_base_url == "https://api.full.example.com/v1"
+        assert cfg.full_model == "gpt-4o"
         assert cfg.full_key == "sk-full-test"
 
     def test_default_work_dir(self, tmp_workdir: Path) -> None:
         """If work_dir not in yaml, use default .gravix."""
-        # Create empty yaml
-        (tmp_workdir / "gravix_conf.yaml").write_text("{}\n")
+        # Create yaml with llm but no work_dir
+        data = {
+            "llm": {
+                "lite": {"base_url": "https://a.com/v1", "model": "m1"},
+                "full": {"base_url": "https://b.com/v1", "model": "m2"},
+            }
+        }
+        import yaml
+        (tmp_workdir / "gravix_conf.yaml").write_text(yaml.dump(data))
         write_env_file(tmp_workdir / ".env")
         cfg = load_config()
         assert cfg.work_dir == ".gravix"
 
-    def test_no_yaml_file_uses_default_work_dir(self, tmp_workdir: Path) -> None:
-        """No yaml file means default work_dir, credentials still from .env."""
+    def test_no_yaml_file_fails_missing_llm(self, tmp_workdir: Path) -> None:
+        """No yaml file means missing required llm config, should fail."""
         write_env_file(tmp_workdir / ".env")
-        cfg = load_config()
-        assert cfg.work_dir == ".gravix"
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
 
 
 class TestLoadConfigFromSystemEnv:
-    """LLM credentials from system environment variables."""
+    """LLM API keys from system environment variables."""
 
     ENV_MAP = {
-        "GRAVIX_LITE_BASE_URL": "https://env.lite.example.com/v1",
         "GRAVIX_LITE_KEY": "sk-env-lite",
-        "GRAVIX_FULL_BASE_URL": "https://env.full.example.com/v1",
         "GRAVIX_FULL_KEY": "sk-env-full",
     }
 
     @pytest.fixture(autouse=True)
     def _set_env(self, tmp_workdir: Path) -> Generator[None, None, None]:
         """Set env vars after tmp_workdir has been set up."""
-        # tmp_workdir clears env vars first, then we set them
         for k, v in self.ENV_MAP.items():
             os.environ[k] = v
         yield
         clear_gravix_env()
 
-    def test_load_all_from_system_env(self) -> None:
-        """All credentials from system environment variables."""
+    def test_load_keys_from_system_env(self) -> None:
+        """API keys from system environment variables, llm from yaml."""
         write_config(Path.cwd() / "gravix_conf.yaml")
         cfg = load_config()
         assert cfg.work_dir == ".gravix"
-        assert cfg.lite_base_url == "https://env.lite.example.com/v1"
+        assert cfg.lite_base_url == "https://api.lite.example.com/v1"
+        assert cfg.lite_model == "gpt-4o-mini"
         assert cfg.lite_key == "sk-env-lite"
-        assert cfg.full_base_url == "https://env.full.example.com/v1"
+        assert cfg.full_base_url == "https://api.full.example.com/v1"
+        assert cfg.full_model == "gpt-4o"
         assert cfg.full_key == "sk-env-full"
 
 
 class TestEnvOverridesDotenv:
-    """System environment variables override .env file."""
+    """System environment variables override .env file for API keys."""
 
     ENV_MAP = {
-        "GRAVIX_LITE_BASE_URL": "https://override.lite.example.com/v1",
         "GRAVIX_LITE_KEY": "sk-override-lite",
     }
 
@@ -84,49 +91,156 @@ class TestEnvOverridesDotenv:
         clear_gravix_env()
 
     def test_system_env_overrides_dotenv(self) -> None:
-        """System env takes priority over .env file."""
+        """System env takes priority over .env file for keys."""
         write_config(Path.cwd() / "gravix_conf.yaml")
-        # .env has different values for lite_*, but system env should override
+        # .env has different value for lite_key, but system env should override
         write_env_file(
             Path.cwd() / ".env",
-            lite_base_url="https://dotenv.lite.example.com/v1",
             lite_key="sk-dotenv-lite",
         )
         cfg = load_config()
-        assert cfg.lite_base_url == "https://override.lite.example.com/v1"
         assert cfg.lite_key == "sk-override-lite"
         # Other values from .env
-        assert cfg.full_base_url == "https://api.full.example.com/v1"
         assert cfg.full_key == "sk-full-test"
 
 
-class TestMissingCredentials:
-    """Error handling when LLM credentials are missing."""
+class TestMissingLlmInYaml:
+    """Error handling when required llm fields are missing from yaml."""
 
-    def test_missing_all_credentials(self, tmp_workdir: Path) -> None:
-        """No credentials anywhere should fail."""
+    def test_missing_llm_section_entirely(self, tmp_workdir: Path) -> None:
+        """No llm section in yaml should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(tmp_workdir / "gravix_conf.yaml")
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_lite_section(self, tmp_workdir: Path) -> None:
+        """Missing lite section in llm should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={"full": {"base_url": "https://b.com/v1", "model": "m2"}},
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_full_section(self, tmp_workdir: Path) -> None:
+        """Missing full section in llm should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={"lite": {"base_url": "https://a.com/v1", "model": "m1"}},
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_lite_base_url(self, tmp_workdir: Path) -> None:
+        """Missing lite.base_url should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={
+                "lite": {"model": "m1"},
+                "full": {"base_url": "https://b.com/v1", "model": "m2"},
+            },
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_lite_model(self, tmp_workdir: Path) -> None:
+        """Missing lite.model should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={
+                "lite": {"base_url": "https://a.com/v1"},
+                "full": {"base_url": "https://b.com/v1", "model": "m2"},
+            },
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_full_base_url(self, tmp_workdir: Path) -> None:
+        """Missing full.base_url should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={
+                "lite": {"base_url": "https://a.com/v1", "model": "m1"},
+                "full": {"model": "m2"},
+            },
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_missing_full_model(self, tmp_workdir: Path) -> None:
+        """Missing full.model should fail."""
+        clear_gravix_env()
+        write_config_missing_llm(
+            tmp_workdir / "gravix_conf.yaml",
+            llm={
+                "lite": {"base_url": "https://a.com/v1", "model": "m1"},
+                "full": {"base_url": "https://b.com/v1"},
+            },
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_empty_llm_field_value(self, tmp_workdir: Path) -> None:
+        """Empty string for a required llm field should fail."""
+        clear_gravix_env()
+        write_config(
+            tmp_workdir / "gravix_conf.yaml",
+            lite_base_url="",  # Empty
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+    def test_whitespace_only_llm_field_value(self, tmp_workdir: Path) -> None:
+        """Whitespace-only value for a required llm field should fail."""
+        clear_gravix_env()
+        write_config(
+            tmp_workdir / "gravix_conf.yaml",
+            lite_model="   ",  # Whitespace only
+        )
+        write_env_file(tmp_workdir / ".env")
+        with pytest.raises(SystemExit, match="1"):
+            load_config()
+
+
+class TestMissingCredentials:
+    """Error handling when API keys are missing."""
+
+    def test_missing_all_keys(self, tmp_workdir: Path) -> None:
+        """No API keys anywhere should fail."""
         clear_gravix_env()
         write_config(tmp_workdir / "gravix_conf.yaml")
         with pytest.raises(SystemExit, match="1"):
             load_config()
 
-    def test_missing_one_credential(self, tmp_workdir: Path) -> None:
-        """Missing one credential should fail."""
+    def test_missing_one_key(self, tmp_workdir: Path) -> None:
+        """Missing one API key should fail."""
         clear_gravix_env()
         write_config(tmp_workdir / "gravix_conf.yaml")
         # Write .env with missing GRAVIX_LITE_KEY
         lines = [
-            "GRAVIX_LITE_BASE_URL=https://a.com/v1",
             # Missing GRAVIX_LITE_KEY
-            "GRAVIX_FULL_BASE_URL=https://b.com/v1",
             "GRAVIX_FULL_KEY=sk-full",
         ]
         (tmp_workdir / ".env").write_text("\n".join(lines) + "\n")
         with pytest.raises(SystemExit, match="1"):
             load_config()
 
-    def test_empty_credential_value(self, tmp_workdir: Path) -> None:
-        """Empty credential value should fail."""
+    def test_empty_key_value(self, tmp_workdir: Path) -> None:
+        """Empty key value should fail."""
         clear_gravix_env()
         write_config(tmp_workdir / "gravix_conf.yaml")
         write_env_file(
