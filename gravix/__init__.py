@@ -1,7 +1,2 @@
-"""
-Gravix - Embedded, high-performance local-first engine for AI agent retrieval and memory
-"""
-
-__version__ = "0.0.1-prerelease"
-__author__ = "dichters"
-__email__ = "dichterszergn@gmail.com"
+from gravix.config import GravixConfig, load_config
+from gravix.storage import init_ladybug, init_raw_dir, init_sqlite, init_work_dir
