@@ -1,5 +1,5 @@
 # gravix
-Embedded, high-performance local-first engine for AI agent retrieval and memory
+A lightweight, local-first engine for AI agent retrieval and memory
 ---
 
 ## Quick Start
