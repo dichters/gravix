@@ -1,0 +1,6 @@
+# gravix configuration file
+# Copy this file to 'gravix_conf.yaml' and modify as needed.
+
+# gravix workspace directory
+# Default: .gravix
+work_dir: .gravix
