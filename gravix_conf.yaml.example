@@ -4,3 +4,12 @@
 # gravix workspace directory
 # Default: .gravix
 work_dir: .gravix
+
+# LLM configuration (OpenAI Compatible)
+llm:
+    lite:
+        base_url: https://api.lite.example.com/v1  # Lite model API endpoint (required)
+        model: gpt-4o-mini  # Lite model name (required)
+    full:
+        base_url: https://api.full.example.com/v1  # Full model API endpoint (required)
+        model: gpt-4o  # Full model name (required)
