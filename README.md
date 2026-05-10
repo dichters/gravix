@@ -5,11 +5,11 @@ A lightweight, local-first engine for AI agent retrieval and memory
 ## Quick Start
 
 ```bash
-# Create a gravix_conf.yaml in your project root, then:
+# Create a gravix_conf.json in your project root, then:
 gravix init
 
 # Or specify a custom config file:
-gravix init -c /path/to/config.yaml
+gravix init -c /path/to/config.json
 
 # Or use environment variables only:
 export GRAVIX_WORK_DIR=.gravix
@@ -32,7 +32,7 @@ Config values are resolved with priority: **environment variable > config file**
 | `full_base_url` | `GRAVIX_FULL_BASE_URL` | Full LLM API base URL (OpenAI-compatible) |
 | `full_sk` | `GRAVIX_FULL_SK` | Full LLM API key |
 
-Default config file: `gravix_conf.yaml` in the current working directory.
+Default config file: `gravix_conf.json` in the current working directory.
 
 ## What `gravix init` Creates
 

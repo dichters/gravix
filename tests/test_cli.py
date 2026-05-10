@@ -16,7 +16,7 @@ class TestInitCommand:
         from io import StringIO
         import sys
 
-        write_config(tmp_workdir / "gravix_conf.yaml")
+        write_config(tmp_workdir / "gravix_conf.json")
         write_env_file(tmp_workdir / ".env")
 
         # Simulate command line args
@@ -32,7 +32,7 @@ class TestInitCommand:
         """Init with work_dir from config."""
         import sys
 
-        write_config(tmp_workdir / "gravix_conf.yaml", work_dir=".config_dir")
+        write_config(tmp_workdir / "gravix_conf.json", work_dir=".config_dir")
         write_env_file(tmp_workdir / ".env")
 
         sys.argv = ["gravix", "init"]
@@ -47,10 +47,10 @@ class TestInitCommand:
         """Init with -conf option to specify config file."""
         import sys
 
-        write_config(tmp_workdir / "my_conf.yaml", work_dir=".custom_dir")
+        write_config(tmp_workdir / "my_conf.json", work_dir=".custom_dir")
         write_env_file(tmp_workdir / ".env")
 
-        sys.argv = ["gravix", "init", "-conf", "my_conf.yaml"]
+        sys.argv = ["gravix", "init", "-conf", "my_conf.json"]
         try:
             main()
         except SystemExit:
@@ -62,7 +62,7 @@ class TestInitCommand:
         """Init without credentials should fail."""
         import sys
 
-        write_config(tmp_workdir / "gravix_conf.yaml")
+        write_config(tmp_workdir / "gravix_conf.json")
         # No .env file
 
         sys.argv = ["gravix", "init"]

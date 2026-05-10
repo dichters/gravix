@@ -1,13 +1,13 @@
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
 from dotenv import load_dotenv
 from loguru import logger as log
 
 
-DEFAULT_CONFIG_FILE = "gravix_conf.yaml"
+DEFAULT_CONFIG_FILE = "gravix_conf.json"
 DEFAULT_WORK_DIR = ".gravix"
 
 # Sensitive config keys (API keys only) and their environment variable names
@@ -16,7 +16,7 @@ _KEY_ENV_MAP = {
     "full_key": "GRAVIX_FULL_KEY",
 }
 
-# Required llm fields in yaml and their dotted path for error messages
+# Required llm fields and their dotted path for error messages
 _REQUIRED_LLM_FIELDS = {
     "llm.lite.base_url": ("lite", "base_url"),
     "llm.lite.model": ("lite", "model"),
@@ -30,12 +30,12 @@ class GravixConfig:
     """Configuration for gravix.
 
     Attributes:
-        work_dir: gravix workspace directory (from yaml or default)
-        lite_base_url: Lite LLM API base URL (from yaml)
-        lite_model: Lite LLM model name (from yaml)
+        work_dir: gravix workspace directory (from json or default)
+        lite_base_url: Lite LLM API base URL (from json)
+        lite_model: Lite LLM model name (from json)
         lite_key: Lite LLM API key (from env)
-        full_base_url: Full LLM API base URL (from yaml)
-        full_model: Full LLM model name (from yaml)
+        full_base_url: Full LLM API base URL (from json)
+        full_model: Full LLM model name (from json)
         full_key: Full LLM API key (from env)
     """
 
@@ -62,18 +62,22 @@ def _load_env_keys() -> dict[str, str]:
 
 
 def _read_config_file(path: str | Path) -> dict:
-    """Read YAML config file."""
+    """Read JSON config file."""
     p = Path(path)
     if not p.exists():
         log.debug("Config file not found: {}", p)
         return {}
-    with open(p, "r") as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(p, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        log.error("Invalid JSON in config file {}: {}", p, e)
+        raise SystemExit(1)
     return data if isinstance(data, dict) else {}
 
 
 def _extract_llm_fields(file_values: dict) -> dict[str, str]:
-    """Extract required llm fields from yaml config values."""
+    """Extract required llm fields from config values."""
     result = {}
     llm = file_values.get("llm", {}) or {}
     for dotted_path, (section, field_name) in _REQUIRED_LLM_FIELDS.items():
@@ -86,33 +90,33 @@ def load_config(config_file: str | Path | None = None) -> GravixConfig:
     """Load gravix configuration.
 
     Config sources:
-    - work_dir: from yaml file, defaults to '.gravix' if not specified
-    - llm base_url and model: from yaml file (llm.lite / llm.full sections)
+    - work_dir: from json file, defaults to '.gravix' if not specified
+    - llm base_url and model: from json file (llm.lite / llm.full sections)
     - LLM API keys: from environment variables or .env file
 
     Args:
-        config_file: Path to yaml config file. Defaults to 'gravix_conf.yaml'.
+        config_file: Path to json config file. Defaults to 'gravix_conf.json'.
 
     Returns:
         GravixConfig instance.
 
     Raises:
-        SystemExit: If required yaml fields or API keys are missing.
+        SystemExit: If required config fields or API keys are missing.
     """
     if config_file is None:
         config_file = DEFAULT_CONFIG_FILE
 
-    # Read yaml config for business settings
+    # Read json config for business settings
     file_values = _read_config_file(config_file)
 
-    # Extract and validate required llm fields from yaml
+    # Extract and validate required llm fields from json
     llm_fields = _extract_llm_fields(file_values)
-    missing_yaml = [k for k, v in llm_fields.items() if not v]
-    if missing_yaml:
+    missing_fields = [k for k, v in llm_fields.items() if not v]
+    if missing_fields:
         log.error(
             "Missing required llm config in {}: {}",
             config_file,
-            ", ".join(missing_yaml),
+            ", ".join(missing_fields),
         )
         raise SystemExit(1)
 
