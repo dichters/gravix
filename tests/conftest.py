@@ -1,9 +1,9 @@
+import json
 import os
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import yaml
 
 
 def write_config(
@@ -15,7 +15,7 @@ def write_config(
     full_base_url: str = "https://api.full.example.com/v1",
     full_model: str = "gpt-4o",
 ) -> None:
-    """Create a gravix_conf.yaml with test values."""
+    """Create a gravix_conf.json with test values."""
     data = {
         "work_dir": work_dir,
         "llm": {
@@ -30,7 +30,7 @@ def write_config(
         },
     }
     with open(path, "w") as f:
-        yaml.dump(data, f)
+        json.dump(data, f, indent=2)
 
 
 def write_config_missing_llm(
@@ -39,12 +39,12 @@ def write_config_missing_llm(
     work_dir: str = ".gravix",
     llm: dict | None = None,
 ) -> None:
-    """Create a gravix_conf.yaml with partial or missing llm config."""
+    """Create a gravix_conf.json with partial or missing llm config."""
     data: dict = {"work_dir": work_dir}
     if llm is not None:
         data["llm"] = llm
     with open(path, "w") as f:
-        yaml.dump(data, f)
+        json.dump(data, f, indent=2)
 
 
 def write_env_file(

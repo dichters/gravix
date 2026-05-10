@@ -1,0 +1,13 @@
+{
+    "work_dir": ".gravix",
+    "llm": {
+        "lite": {
+            "base_url": "https://api.lite.example.com/v1",
+            "model": "gpt-4o-mini"
+        },
+        "full": {
+            "base_url": "https://api.full.example.com/v1",
+            "model": "gpt-4o"
+        }
+    }
+}
