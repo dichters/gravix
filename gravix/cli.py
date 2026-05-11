@@ -12,7 +12,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     gravix.init()
 
 
-def cmd_set_topic(args: argparse.Namespace) -> None:
+def cmd_topic(args: argparse.Namespace) -> None:
     config = load_config(config_file=args.conf)
     gravix = Gravix(config)
     gravix.set_topic(text=args.text, file=args.file)
@@ -28,17 +28,17 @@ def main() -> None:
     )
     init_parser.set_defaults(func=cmd_init)
 
-    set_topic_parser = subparsers.add_parser("set-topic", help="Set topic for the knowledge base")
-    set_topic_parser.add_argument(
+    topic_parser = subparsers.add_parser("topic", help="Set topic for the knowledge base")
+    topic_parser.add_argument(
         "text", nargs="?", default=None, help="Topic description text"
     )
-    set_topic_parser.add_argument(
+    topic_parser.add_argument(
         "-file", default=None, help="Path to a file containing the topic description"
     )
-    set_topic_parser.add_argument(
+    topic_parser.add_argument(
         "-conf", default=None, help="Path to config JSON file"
     )
-    set_topic_parser.set_defaults(func=cmd_set_topic)
+    topic_parser.set_defaults(func=cmd_topic)
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
