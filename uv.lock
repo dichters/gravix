@@ -66,7 +66,7 @@ wheels = [
 
 [[package]]
 name = "gravix"
-version = "0.0.1rc0"
+version = "0.0.1a0"
 source = { editable = "." }
 dependencies = [
     { name = "ladybug" },
